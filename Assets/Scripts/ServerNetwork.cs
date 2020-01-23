@@ -17,10 +17,12 @@ public enum ServerStatus
     FullyConnected
 }
 
-public class ServerNetwork
+public class ServerNetwork<TSyncToServer, TSyncToClient>
+    where TSyncToServer : new()
+    where TSyncToClient : new()
 {
-    public SyncDataToClient DataToClient { get; private set; }
-    public SyncDataToServer[] DataFromClient { get; private set; }
+    public TSyncToClient DataToClient { get; private set; }
+    public TSyncToServer[] DataFromClient { get; private set; }
     public ServerStatus Status { get; private set; } = ServerStatus.Idle;
     public bool PlayerDisconnected { get; private set; } // Override Status and Joined
     public int Joined { get; private set; }
@@ -31,20 +33,20 @@ public class ServerNetwork
     private NetworkStream[] remoteStream = new NetworkStream[3];
     private TcpListener listener;
 
-    private Serializer<SyncDataToClient> serializer;
-    private Serializer<SyncDataToServer> deserializer;
+    private Serializer<TSyncToClient> serializer;
+    private Serializer<TSyncToServer> deserializer;
 
     private CancellationTokenSource cts;
 
     public ServerNetwork()
     {
-        DataToClient = new SyncDataToClient();
-        DataFromClient = new SyncDataToServer[3];
-        serializer = new Serializer<SyncDataToClient>();
-        deserializer = new Serializer<SyncDataToServer>();
+        DataToClient = new TSyncToClient();
+        DataFromClient = new TSyncToServer[3];
+        serializer = new Serializer<TSyncToClient>();
+        deserializer = new Serializer<TSyncToServer>();
         for (int i = 0; i < 3; i++)
         {
-            DataFromClient[i] = new SyncDataToServer();
+            DataFromClient[i] = new TSyncToServer();
         }
     }
 

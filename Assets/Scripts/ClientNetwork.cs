@@ -16,10 +16,12 @@ public enum ClientStatus
     Disconnected
 }
 
-public class ClientNetwork
+public class ClientNetwork<TSyncToServer, TSyncToClient>
+    where TSyncToServer: new()
+    where TSyncToClient: new()
 {
-    public SyncDataToClient DataFromServer { get; private set; }
-    public SyncDataToServer DataToServer { get; private set; }
+    public TSyncToClient DataFromServer { get; private set; }
+    public TSyncToServer DataToServer { get; private set; }
     public ClientStatus Status { get; private set; }
     public bool DataReceived { get; private set; }
 
@@ -27,8 +29,8 @@ public class ClientNetwork
     private TcpClient client;
     private NetworkStream stream;
 
-    private Serializer<SyncDataToServer> serializer;
-    private Serializer<SyncDataToClient> deserializer;
+    private Serializer<TSyncToServer> serializer;
+    private Serializer<TSyncToClient> deserializer;
 
     private CancellationTokenSource cts;
 
@@ -36,10 +38,10 @@ public class ClientNetwork
 
     public ClientNetwork()
     {
-        DataFromServer = new SyncDataToClient();
-        DataToServer = new SyncDataToServer();
-        serializer = new Serializer<SyncDataToServer>();
-        deserializer = new Serializer<SyncDataToClient>();
+        DataFromServer = new TSyncToClient();
+        DataToServer = new TSyncToServer();
+        serializer = new Serializer<TSyncToServer>();
+        deserializer = new Serializer<TSyncToClient>();
     }
 
     public void Start(string ip, int port)

@@ -9,5 +9,5 @@ public class SyncDataToClient
 {
     public Vector3[] Positions { get; set; } = new Vector3[3];
 
-    public Vector3[] FreeBallPosition { get; set; } = new Vector3[48];
+    public Vector3[] FreeBallPosition { get; set; } = new Vector3[64];
 }
