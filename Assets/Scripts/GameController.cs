@@ -15,6 +15,12 @@ public class GameController : MonoBehaviour
     Rigidbody[] ballRbs = new Rigidbody[3];
     Transform[] ballTrs = new Transform[3];
 
+    private void Awake()
+    {
+        if (IsServer)
+            Application.targetFrameRate = 60;
+    }
+
     // Start is called before the first frame update
     void Start()
     {

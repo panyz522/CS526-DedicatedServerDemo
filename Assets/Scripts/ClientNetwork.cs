@@ -42,33 +42,42 @@ public class ClientNetwork
 
     private void Run()
     {
-        float[] floatsOut = new float[2];
-        float[] floatsIn = new float[9];
-        byte[] dataOut = new byte[2 * sizeof(float)];
-        byte[] dataIn = new byte[9 * sizeof(float)];
-
-        while (!cts.IsCancellationRequested)
+        try
         {
-            //Debug.Log("Writing Input...");
-            DateTime sendTime = DateTime.Now;
-            FillFloatArray(floatsOut, 0, curInput);
-            Buffer.BlockCopy(floatsOut, 0, dataOut, 0, dataOut.Length);
-            stream.WriteAsync(dataOut, 0, dataOut.Length, cts.Token).Wait();
-            stream.Flush();
-            //Debug.Log("Writing Input Done");
+            int nInFloat = 9;
+            int nOutFloat = 2;
+            float[] floatsOut = new float[nOutFloat];
+            float[] floatsIn = new float[nInFloat];
+            //byte[] dataOut = new byte[nOutFloat * sizeof(float)];
+            byte[] dataOut = new byte[1024];
+            //byte[] dataIn = new byte[nInFloat * sizeof(float)];
+            byte[] dataIn = new byte[1024];
 
-            //Debug.Log("Reading Pos...");
-            stream.ReadAsync(dataIn, 0, dataIn.Length, cts.Token).Wait();
-            Buffer.BlockCopy(dataIn, 0, floatsIn, 0, dataIn.Length);
-            for (int i = 0; i < 3; i++)
+            while (!cts.IsCancellationRequested)
             {
-                GetVector3FromArray(floatsIn, i * 3, out Vector3 curPos);
-                curPoss[i] = curPos;
-            }
-            //Debug.Log("Reading Pos Done");
-            Delay = DateTime.Now - sendTime;
+                //Debug.Log("Writing Input...");
+                DateTime sendTime = DateTime.Now;
+                FillFloatArray(floatsOut, 0, curInput);
+                Buffer.BlockCopy(floatsOut, 0, dataOut, 0, nOutFloat * sizeof(float));
+                stream.WriteAsync(dataOut, 0, dataOut.Length, cts.Token).Wait();
+                stream.Flush();
+                //Debug.Log("Writing Input Done");
 
-            Thread.Sleep(10);
+                //Debug.Log("Reading Pos...");
+                stream.ReadAsync(dataIn, 0, dataIn.Length, cts.Token).Wait();
+                Buffer.BlockCopy(dataIn, 0, floatsIn, 0, nInFloat * sizeof(float));
+                for (int i = 0; i < 3; i++)
+                {
+                    GetVector3FromArray(floatsIn, i * 3, out Vector3 curPos);
+                    curPoss[i] = curPos;
+                }
+                //Debug.Log("Reading Pos Done");
+                Delay = DateTime.Now - sendTime;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError(e);
         }
     }
 

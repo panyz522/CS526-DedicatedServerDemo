@@ -64,34 +64,45 @@ public class ServerNetwork
 
     private void RunForClient(TcpClient client, int player)
     {
-        Debug.Log("Client connected");
-        float[] floatsIn = new float[2];
-        float[] floatsOut = new float[9];
-        byte[] dataIn = new byte[2 * sizeof(float)];
-        byte[] dataOut = new byte[9 * sizeof(float)];
-        remoteStream[player] = client.GetStream();
-        var stream = remoteStream[player];
-
-        while (!cts.IsCancellationRequested)
+        try
         {
-            //Debug.Log("Reading input...");
-            stream.ReadAsync(dataIn, 0, dataIn.Length, cts.Token).Wait();
-            Buffer.BlockCopy(dataIn, 0, floatsIn, 0, dataIn.Length);
-            GetVector2FromArray(floatsIn, 0, out Vector2 curInput);
-            curInputs[player] = curInput;
-            //Debug.Log($"Read {curInput}");
+            Debug.Log("Client connected");
+            int nInFloat = 2;
+            int nOutFloat = 9;
+            float[] floatsIn = new float[nInFloat];
+            float[] floatsOut = new float[nOutFloat];
+            //byte[] dataIn = new byte[nInFloat * sizeof(float)];
+            byte[] dataIn = new byte[1024];
+            //byte[] dataOut = new byte[nOutFloat * sizeof(float)];
+            byte[] dataOut = new byte[1024];
+            remoteStream[player] = client.GetStream();
+            var stream = remoteStream[player];
 
-            for (int i = 0; i < 3; i++)
+            while (!cts.IsCancellationRequested)
             {
-                FillFloatArray(floatsOut, i * 3, curPoss[i]);
-            }
-            Buffer.BlockCopy(floatsOut, 0, dataOut, 0, dataOut.Length);
-            //Debug.Log($"Writing pos...");
-            stream.WriteAsync(dataOut, 0, dataOut.Length, cts.Token).Wait();
-            stream.Flush();
-            //Debug.Log($"Wrote.");
+                //Debug.Log("Reading input...");
+                stream.ReadAsync(dataIn, 0, dataIn.Length, cts.Token).Wait();
+                Buffer.BlockCopy(dataIn, 0, floatsIn, 0, nInFloat * sizeof(float));
+                GetVector2FromArray(floatsIn, 0, out Vector2 curInput);
+                curInputs[player] = curInput;
+                //Debug.Log($"Read {curInput}");
 
-            Thread.Sleep(10);
+                for (int i = 0; i < 3; i++)
+                {
+                    FillFloatArray(floatsOut, i * 3, curPoss[i]);
+                }
+                Buffer.BlockCopy(floatsOut, 0, dataOut, 0, nOutFloat * sizeof(float));
+                //Debug.Log($"Writing pos...");
+                stream.WriteAsync(dataOut, 0, dataOut.Length, cts.Token).Wait();
+                stream.Flush();
+                //Debug.Log($"Wrote.");
+
+                Thread.Sleep(10);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError(e);
         }
     }
 
