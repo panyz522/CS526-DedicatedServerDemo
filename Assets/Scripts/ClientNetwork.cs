@@ -8,24 +8,46 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-using static NetUtils;
+public enum ClientStatus
+{
+    Idle,
+    Starting,
+    Connected,
+    Disconnected
+}
 
 public class ClientNetwork
 {
+    public SyncDataToClient DataFromServer { get; private set; }
+    public SyncDataToServer DataToServer { get; private set; }
+    public ClientStatus Status { get; private set; }
+    public bool DataReceived { get; private set; }
+
     private Task netTask;
     private TcpClient client;
     private NetworkStream stream;
 
-    private Vector2 curInput;
-    private Vector3[] curPoss = new Vector3[3];
-    private Vector3[] curFreeBallPoss = new Vector3[16];
+    private Serializer<SyncDataToServer> serializer;
+    private Serializer<SyncDataToClient> deserializer;
 
     private CancellationTokenSource cts;
 
     public TimeSpan Delay { get; private set; }
 
+    public ClientNetwork()
+    {
+        DataFromServer = new SyncDataToClient();
+        DataToServer = new SyncDataToServer();
+        serializer = new Serializer<SyncDataToServer>();
+        deserializer = new Serializer<SyncDataToClient>();
+    }
+
     public void Start(string ip, int port)
     {
+        Debug.Assert(Status == ClientStatus.Idle);
+        Debug.Log("Starting...");
+        DataReceived = false;
+        Status = ClientStatus.Starting;
         cts = new CancellationTokenSource();
         client = new TcpClient(ip, port);
         stream = client.GetStream();
@@ -34,49 +56,48 @@ public class ClientNetwork
 
     public void Stop()
     {
+        Debug.Assert(Status != ClientStatus.Idle);
+        Debug.Log("Stopping...");
+
         cts.Cancel();
-        stream.Close();
-        client.Close();
+        try { stream.Close(); }
+        catch { }
+        try { client.Close(); }
+        catch { }
         netTask.Wait();
         cts.Dispose();
+
+        Debug.Log("Successfully Stopped and Disposed");
+        Status = ClientStatus.Idle;
     }
 
     private void Run()
     {
         try
         {
-            int nInFloat = (3 + 16) * 3;
-            int nOutFloat = 2;
-            float[] floatsOut = new float[nOutFloat];
-            float[] floatsIn = new float[nInFloat];
-            //byte[] dataOut = new byte[nOutFloat * sizeof(float)];
+            Debug.Log("Connected");
+            Status = ClientStatus.Connected;
             byte[] dataOut = new byte[1024];
-            //byte[] dataIn = new byte[nInFloat * sizeof(float)];
             byte[] dataIn = new byte[1024];
+
+            // Get length for data
+            byte[] test = new byte[1024];
+            Debug.Log($"Length of data to server: {serializer.SerializeTo(DataToServer, test)}");
+            Debug.Log($"Length of data from server: {deserializer.SerializeTo(DataFromServer, test)}");
 
             while (!cts.IsCancellationRequested)
             {
                 //Debug.Log("Writing Input...");
                 DateTime sendTime = DateTime.Now;
-                FillFloatArray(floatsOut, 0, curInput);
-                Buffer.BlockCopy(floatsOut, 0, dataOut, 0, nOutFloat * sizeof(float));
+                serializer.SerializeTo(DataToServer, dataOut);
                 stream.WriteAsync(dataOut, 0, dataOut.Length, cts.Token).Wait();
                 stream.Flush();
                 //Debug.Log("Writing Input Done");
 
                 //Debug.Log("Reading Pos...");
                 stream.ReadAsync(dataIn, 0, dataIn.Length, cts.Token).Wait();
-                Buffer.BlockCopy(dataIn, 0, floatsIn, 0, nInFloat * sizeof(float));
-                for (int i = 0; i < 3; i++)
-                {
-                    GetVector3FromArray(floatsIn, i * 3, out Vector3 curPos);
-                    curPoss[i] = curPos;
-                }
-                for (int i = 0; i < 16; i++)
-                {
-                    GetVector3FromArray(floatsIn, 9 + i * 3, out Vector3 curPos);
-                    curFreeBallPoss[i] = curPos;
-                }
+                deserializer.DeserializeFrom(dataIn, DataFromServer);
+                DataReceived = true;
                 //Debug.Log("Reading Pos Done");
                 Delay = DateTime.Now - sendTime;
             }
@@ -85,20 +106,7 @@ public class ClientNetwork
         {
             Debug.LogError(e);
         }
-    }
-
-    public void SendInput(Vector2 dir)
-    {
-        curInput = dir;
-    }
-
-    public Vector3 GetPosition(int i)
-    {
-        return curPoss[i];
-    }
-
-    public Vector3 GetFreeBallPosition(int i)
-    {
-        return curFreeBallPoss[i];
+        Debug.Log("Disconnected");
+        Status = ClientStatus.Disconnected;
     }
 }

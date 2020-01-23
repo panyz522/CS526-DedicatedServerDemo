@@ -8,27 +8,53 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-using static NetUtils;
+public enum ServerStatus
+{
+    Idle,
+    Starting,
+    Waiting,
+    PartiallyConnected,
+    FullyConnected
+}
 
 public class ServerNetwork
 {
+    public SyncDataToClient DataToClient { get; private set; }
+    public SyncDataToServer[] DataFromClient { get; private set; }
+    public ServerStatus Status { get; private set; } = ServerStatus.Idle;
+    public bool PlayerDisconnected { get; private set; } // Override Status and Joined
+    public int Joined { get; private set; }
+
     private Task netTask;
     private Task[] netClientTask = new Task[3]; // Assume only 3 clients
     private TcpClient[] remoteClient = new TcpClient[3];
     private NetworkStream[] remoteStream = new NetworkStream[3];
-    private int joined;
     private TcpListener listener;
 
-    private Vector2[] curInputs = new Vector2[3];
-    private Vector3[] curPoss = new Vector3[3];
-    private Vector3[] curFreeBallPoss = new Vector3[16];
+    private Serializer<SyncDataToClient> serializer;
+    private Serializer<SyncDataToServer> deserializer;
 
     private CancellationTokenSource cts;
-    
+
+    public ServerNetwork()
+    {
+        DataToClient = new SyncDataToClient();
+        DataFromClient = new SyncDataToServer[3];
+        serializer = new Serializer<SyncDataToClient>();
+        deserializer = new Serializer<SyncDataToServer>();
+        for (int i = 0; i < 3; i++)
+        {
+            DataFromClient[i] = new SyncDataToServer();
+        }
+    }
 
     public void Start(int port)
     {
+        Debug.Assert(Status == ServerStatus.Idle);
         Debug.Log("Starting...");
+        Status = ServerStatus.Starting;
+
+        PlayerDisconnected = false;
         cts = new CancellationTokenSource();
         listener = new TcpListener(IPAddress.Any, port);
         listener.Start();
@@ -37,28 +63,46 @@ public class ServerNetwork
 
     public void Stop()
     {
+        Debug.Assert(Status != ServerStatus.Idle);
+        Debug.Log("Stopping...");
+
         cts.Cancel();
-        //remoteStream.Close(); // TODO
-        //remoteClient.Close();
+        listener.Stop();
         netTask.Wait();
         for (int i = 0; i < 3; i++)
         {
             netClientTask[i]?.Wait();
+            try { remoteStream[i]?.Close(); }
+            catch { }
+            try { remoteClient[i]?.Close(); }
+            catch { }
         }
         cts.Dispose();
+
+        Debug.Log("Successfully Stopped and Disposed");
+        Status = ServerStatus.Idle;
     }
 
     private void Run()
     {
-
-        while (joined < 3 && !cts.IsCancellationRequested)
+        try
         {
-            Debug.Log($"Waiting for connection {joined}...");
-            remoteClient[joined] = listener.AcceptTcpClient();
-            var player = joined;
-            netClientTask[player] = Task.Run(() => { RunForClient(remoteClient[player], player); });
-            joined++;
+            while (Joined < 3 && !cts.IsCancellationRequested)
+            {
+                Debug.Log($"Waiting for connection {Joined}...");
+                Status = (Joined == 0)? ServerStatus.Waiting : ServerStatus.PartiallyConnected;
+                remoteClient[Joined] = listener.AcceptTcpClient();
+                var player = Joined;
+                netClientTask[player] = Task.Run(() => { RunForClient(remoteClient[player], player); });
+                Joined++;
+            }
+            Status = ServerStatus.FullyConnected;
         }
+        catch (Exception e)
+        {
+            Debug.LogError(e);
+        }
+        Debug.Log("Listener Stopped");
 
         // Assume only 3 client, don't listen anymore.
     }
@@ -67,14 +111,8 @@ public class ServerNetwork
     {
         try
         {
-            Debug.Log("Client connected");
-            int nInFloat = 2;
-            int nOutFloat = (3 + 16) * 3;
-            float[] floatsIn = new float[nInFloat];
-            float[] floatsOut = new float[nOutFloat];
-            //byte[] dataIn = new byte[nInFloat * sizeof(float)];
+            Debug.Log($"Client {player} connected");
             byte[] dataIn = new byte[1024];
-            //byte[] dataOut = new byte[nOutFloat * sizeof(float)];
             byte[] dataOut = new byte[1024];
             remoteStream[player] = client.GetStream();
             var stream = remoteStream[player];
@@ -83,20 +121,10 @@ public class ServerNetwork
             {
                 //Debug.Log("Reading input...");
                 stream.ReadAsync(dataIn, 0, dataIn.Length, cts.Token).Wait();
-                Buffer.BlockCopy(dataIn, 0, floatsIn, 0, nInFloat * sizeof(float));
-                GetVector2FromArray(floatsIn, 0, out Vector2 curInput);
-                curInputs[player] = curInput;
+                deserializer.DeserializeFrom(dataIn, DataFromClient[player]);
                 //Debug.Log($"Read {curInput}");
 
-                for (int i = 0; i < 3; i++)
-                {
-                    FillFloatArray(floatsOut, i * 3, curPoss[i]);
-                }
-                for (int i = 0; i < 16; i++)
-                {
-                    FillFloatArray(floatsOut, 9 + i * 3, curFreeBallPoss[i]);
-                }
-                Buffer.BlockCopy(floatsOut, 0, dataOut, 0, nOutFloat * sizeof(float));
+                serializer.SerializeTo(DataToClient, dataOut);
                 //Debug.Log($"Writing pos...");
                 stream.WriteAsync(dataOut, 0, dataOut.Length, cts.Token).Wait();
                 stream.Flush();
@@ -109,20 +137,7 @@ public class ServerNetwork
         {
             Debug.LogError(e);
         }
-    }
-
-    public Vector2 GetInput(int i)
-    {
-        return curInputs[i];
-    }
-
-    public void SendPosition(int i, Vector3 pos)
-    {
-        curPoss[i] = pos;
-    }
-
-    public void SendFreeBallPosition(int i, Vector3 pos)
-    {
-        curFreeBallPoss[i] = pos;
+        Debug.Log($"Client {player} disconnected");
+        PlayerDisconnected = true;
     }
 }

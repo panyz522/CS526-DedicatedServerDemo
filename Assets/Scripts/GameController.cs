@@ -13,11 +13,11 @@ public class GameController : MonoBehaviour
     ClientNetwork client;
 
     GameObject[] ballObjs = new GameObject[3];
-    GameObject[] freeBallObjs = new GameObject[16];
+    GameObject[] freeBallObjs = new GameObject[48];
     Rigidbody[] ballRbs = new Rigidbody[3];
     Transform[] ballTrs = new Transform[3];
-    Rigidbody[] freeBallRbs = new Rigidbody[16];
-    Transform[] freeBallTrs = new Transform[16];
+    Rigidbody[] freeBallRbs = new Rigidbody[48];
+    Transform[] freeBallTrs = new Transform[48];
 
     private void Awake()
     {
@@ -44,6 +44,30 @@ public class GameController : MonoBehaviour
             freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(2 * i, 1, -4), Quaternion.identity);
             freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
             iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(-2 * i, 1, -6), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(2 * i, 1, -6), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(-2 * i, 1, 2), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(2 * i, 1, 2), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(-2 * i, 1, 4), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(2 * i, 1, 4), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(-2 * i, 1, 6), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(2 * i, 1, 6), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
         }
 
         // Get balls
@@ -63,7 +87,7 @@ public class GameController : MonoBehaviour
                 ballRbs[i] = ballObjs[i].GetComponent<Rigidbody>();
             }
 
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 48; i++)
             {
                 freeBallRbs[i] = freeBallObjs[i].GetComponent<Rigidbody>();
             }
@@ -79,7 +103,7 @@ public class GameController : MonoBehaviour
                 Destroy(ballObjs[i].GetComponent<SphereCollider>());
             }
 
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 48; i++)
             {
                 Destroy(freeBallObjs[i].GetComponent<Rigidbody>());
                 Destroy(freeBallObjs[i].GetComponent<SphereCollider>());
@@ -97,26 +121,31 @@ public class GameController : MonoBehaviour
         {
             for (int i = 0; i < 3; i++)
             {
-                var input = server.GetInput(i);
+                var input = server.DataFromClient[i].Inputs;
                 ballRbs[i].velocity = new Vector3(input.x, ballRbs[i].velocity.y, input.y); // TODO: Change to force
-                server.SendPosition(i, ballTrs[i].position);
+                server.DataToClient.Positions[i] = ballTrs[i].position;
             }
 
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 48; i++)
             {
-                server.SendFreeBallPosition(i, freeBallTrs[i].position);
+                server.DataToClient.FreeBallPosition[i] = freeBallTrs[i].position;
             }
         }
         else
         {
-            for (int i = 0; i < 3; i++)
+            if (!client.DataReceived)
             {
-                ballTrs[i].position = client.GetPosition(i);
+                return;
             }
 
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 3; i++)
             {
-                freeBallTrs[i].position = client.GetFreeBallPosition(i);
+                ballTrs[i].position = client.DataFromServer.Positions[i];
+            }
+
+            for (int i = 0; i < 48; i++)
+            {
+                freeBallTrs[i].position = client.DataFromServer.FreeBallPosition[i];
             }
 
             Vector2 dir = new Vector2();
@@ -124,10 +153,21 @@ public class GameController : MonoBehaviour
             dir.x += Input.GetKey(KeyCode.RightArrow) ? 1 : 0;
             dir.y += Input.GetKey(KeyCode.UpArrow) ? 1 : 0;
             dir.y -= Input.GetKey(KeyCode.DownArrow) ? 1 : 0;
-            client.SendInput(dir * 4);
+            client.DataToServer.Inputs = dir * 4;
 
             TxtDelay.text = client.Delay.ToString();
         }
 
+    }
+
+    private void OnApplicationQuit()
+    {
+        if (IsServer)
+        {
+            server?.Stop();
+        }
+        {
+            client?.Stop();
+        }
     }
 }
