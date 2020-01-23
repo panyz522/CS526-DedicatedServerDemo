@@ -18,6 +18,7 @@ public class ClientNetwork
 
     private Vector2 curInput;
     private Vector3[] curPoss = new Vector3[3];
+    private Vector3[] curFreeBallPoss = new Vector3[16];
 
     private CancellationTokenSource cts;
 
@@ -44,7 +45,7 @@ public class ClientNetwork
     {
         try
         {
-            int nInFloat = 9;
+            int nInFloat = (3 + 16) * 3;
             int nOutFloat = 2;
             float[] floatsOut = new float[nOutFloat];
             float[] floatsIn = new float[nInFloat];
@@ -71,6 +72,11 @@ public class ClientNetwork
                     GetVector3FromArray(floatsIn, i * 3, out Vector3 curPos);
                     curPoss[i] = curPos;
                 }
+                for (int i = 0; i < 16; i++)
+                {
+                    GetVector3FromArray(floatsIn, 9 + i * 3, out Vector3 curPos);
+                    curFreeBallPoss[i] = curPos;
+                }
                 //Debug.Log("Reading Pos Done");
                 Delay = DateTime.Now - sendTime;
             }
@@ -89,5 +95,10 @@ public class ClientNetwork
     public Vector3 GetPosition(int i)
     {
         return curPoss[i];
+    }
+
+    public Vector3 GetFreeBallPosition(int i)
+    {
+        return curFreeBallPoss[i];
     }
 }

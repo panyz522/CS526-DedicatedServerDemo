@@ -6,14 +6,18 @@ using UnityEngine.UI;
 public class GameController : MonoBehaviour
 {
     public Text TxtDelay;
+    public GameObject BallPrefab;
     public bool IsServer;
     public string Ip;
     ServerNetwork server;
     ClientNetwork client;
 
     GameObject[] ballObjs = new GameObject[3];
+    GameObject[] freeBallObjs = new GameObject[16];
     Rigidbody[] ballRbs = new Rigidbody[3];
     Transform[] ballTrs = new Transform[3];
+    Rigidbody[] freeBallRbs = new Rigidbody[16];
+    Transform[] freeBallTrs = new Transform[16];
 
     private void Awake()
     {
@@ -24,6 +28,24 @@ public class GameController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        int iball = 0;
+        // Generate free balls
+        for (int i = 1; i <= 4; i++)
+        {
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(-2 * i, 1, -2), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(2 * i, 1, -2), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(-2 * i, 1, -4), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+            freeBallObjs[iball] = Instantiate(BallPrefab, new Vector3(2 * i, 1, -4), Quaternion.identity);
+            freeBallTrs[iball] = freeBallObjs[iball].GetComponent<Transform>();
+            iball++;
+        }
+
         // Get balls
         for (int i = 0; i < 3; i++)
         {
@@ -41,6 +63,11 @@ public class GameController : MonoBehaviour
                 ballRbs[i] = ballObjs[i].GetComponent<Rigidbody>();
             }
 
+            for (int i = 0; i < 16; i++)
+            {
+                freeBallRbs[i] = freeBallObjs[i].GetComponent<Rigidbody>();
+            }
+
             server = new ServerNetwork();
             server.Start(10000);
         }
@@ -50,6 +77,12 @@ public class GameController : MonoBehaviour
             {
                 Destroy(ballObjs[i].GetComponent<Rigidbody>());
                 Destroy(ballObjs[i].GetComponent<SphereCollider>());
+            }
+
+            for (int i = 0; i < 16; i++)
+            {
+                Destroy(freeBallObjs[i].GetComponent<Rigidbody>());
+                Destroy(freeBallObjs[i].GetComponent<SphereCollider>());
             }
 
             client = new ClientNetwork();
@@ -68,12 +101,22 @@ public class GameController : MonoBehaviour
                 ballRbs[i].velocity = new Vector3(input.x, ballRbs[i].velocity.y, input.y); // TODO: Change to force
                 server.SendPosition(i, ballTrs[i].position);
             }
+
+            for (int i = 0; i < 16; i++)
+            {
+                server.SendFreeBallPosition(i, freeBallTrs[i].position);
+            }
         }
         else
         {
             for (int i = 0; i < 3; i++)
             {
                 ballTrs[i].position = client.GetPosition(i);
+            }
+
+            for (int i = 0; i < 16; i++)
+            {
+                freeBallTrs[i].position = client.GetFreeBallPosition(i);
             }
 
             Vector2 dir = new Vector2();

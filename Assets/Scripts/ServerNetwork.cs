@@ -21,6 +21,7 @@ public class ServerNetwork
 
     private Vector2[] curInputs = new Vector2[3];
     private Vector3[] curPoss = new Vector3[3];
+    private Vector3[] curFreeBallPoss = new Vector3[16];
 
     private CancellationTokenSource cts;
     
@@ -68,7 +69,7 @@ public class ServerNetwork
         {
             Debug.Log("Client connected");
             int nInFloat = 2;
-            int nOutFloat = 9;
+            int nOutFloat = (3 + 16) * 3;
             float[] floatsIn = new float[nInFloat];
             float[] floatsOut = new float[nOutFloat];
             //byte[] dataIn = new byte[nInFloat * sizeof(float)];
@@ -90,6 +91,10 @@ public class ServerNetwork
                 for (int i = 0; i < 3; i++)
                 {
                     FillFloatArray(floatsOut, i * 3, curPoss[i]);
+                }
+                for (int i = 0; i < 16; i++)
+                {
+                    FillFloatArray(floatsOut, 9 + i * 3, curFreeBallPoss[i]);
                 }
                 Buffer.BlockCopy(floatsOut, 0, dataOut, 0, nOutFloat * sizeof(float));
                 //Debug.Log($"Writing pos...");
@@ -114,5 +119,10 @@ public class ServerNetwork
     public void SendPosition(int i, Vector3 pos)
     {
         curPoss[i] = pos;
+    }
+
+    public void SendFreeBallPosition(int i, Vector3 pos)
+    {
+        curFreeBallPoss[i] = pos;
     }
 }
