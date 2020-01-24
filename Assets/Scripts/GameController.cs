@@ -25,6 +25,7 @@ public class GameController : MonoBehaviour
             Application.targetFrameRate = 60;
         else
             Application.targetFrameRate = 60;
+        Debug.Log(sizeof(ServerStatus));
     }
 
     // Start is called before the first frame update

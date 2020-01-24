@@ -8,6 +8,7 @@ using UnityEngine;
 
 public class Serializer<T>
 {
+    private List<PropertyInfo> enumProperties = new List<PropertyInfo>();
     private List<PropertyInfo> intProperties = new List<PropertyInfo>();
     private List<PropertyInfo> floatProperties = new List<PropertyInfo>();
     private List<PropertyInfo> vector2Properties = new List<PropertyInfo>();
@@ -23,7 +24,11 @@ public class Serializer<T>
             .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.GetProperty | BindingFlags.SetProperty);
         foreach (var prop in propInfos.OrderBy((m) => m.Name))
         {
-            if (prop.PropertyType == typeof(int))
+            if (prop.PropertyType.BaseType == typeof(Enum))
+            {
+                enumProperties.Add(prop);
+            }
+            else if (prop.PropertyType == typeof(int))
             {
                 intProperties.Add(prop);
             }
@@ -66,6 +71,10 @@ public class Serializer<T>
     public int SerializeTo(T syncObj, byte[] output)
     {
         int pos = 0;
+        foreach (var prop in enumProperties)
+        {
+            pos = Serialize((int)prop.GetValue(syncObj), output, pos);
+        }
         foreach (var prop in intProperties)
         {
             pos = Serialize((prop.GetValue(syncObj) as int?).Value, output, pos);
@@ -104,6 +113,11 @@ public class Serializer<T>
     public int DeserializeFrom(byte[] input, T syncObj)
     {
         int pos = 0;
+        foreach (var prop in enumProperties)
+        {
+            pos = Deserialize(input, pos, out int value);
+            prop.SetValue(syncObj, value);
+        }
         foreach (var prop in intProperties)
         {
             pos = Deserialize(input, pos, out int value);
