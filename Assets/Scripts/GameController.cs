@@ -96,6 +96,7 @@ public class GameController : MonoBehaviour
         }
     }
 
+    private bool[] keyHold = new bool[] { false, false, false };
     // Update is called once per frame
     void FixedUpdate()
     {
@@ -104,8 +105,15 @@ public class GameController : MonoBehaviour
             for (int i = 0; i < 3; i++)
             {
                 var input = server.DataFromClient[i].Inputs;
+                bool curKeyHold = server.DataFromClient[i].SpaceHold == 1;
+
+                if (curKeyHold && !keyHold[i])
+                    ballRbs[i].AddForce(new Vector3(0, 500, 0));
+                keyHold[i] = curKeyHold;
+
                 ballRbs[i].velocity = new Vector3(input.x, ballRbs[i].velocity.y, input.y);
                 //ballRbs[i].AddForce(new Vector3(input.x, ballRbs[i].velocity.y, input.y));
+
                 server.DataToClient.Positions[i] = ballTrs[i].position;
             }
 
@@ -137,6 +145,7 @@ public class GameController : MonoBehaviour
             dir.y += Input.GetKey(KeyCode.UpArrow) ? 1 : 0;
             dir.y -= Input.GetKey(KeyCode.DownArrow) ? 1 : 0;
             client.DataToServer.Inputs = dir * 4;
+            client.DataToServer.SpaceHold = Input.GetKey(KeyCode.Space) ? 1 : 0;
 
             TxtDelay.text = client.Delay.ToString();
         }

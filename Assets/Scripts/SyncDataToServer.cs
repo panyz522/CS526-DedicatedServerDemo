@@ -8,4 +8,6 @@ using UnityEngine;
 public class SyncDataToServer
 {
     public Vector2 Inputs { get; set; }
+
+    public int SpaceHold { get; set; }
 }

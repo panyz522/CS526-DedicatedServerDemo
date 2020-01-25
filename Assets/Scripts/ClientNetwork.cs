@@ -106,7 +106,17 @@ public class ClientNetwork<TSyncToServer, TSyncToClient>
         }
         catch (Exception e)
         {
-            Debug.LogError(e);
+            do
+            {
+                if (e is AggregateException ae)
+                {
+                    if (ae.InnerException is ObjectDisposedException)
+                        break;
+                    if (ae.InnerException is System.IO.IOException)
+                        break;
+                }
+                Debug.LogError(e);
+            } while (false);
         }
         Debug.Log("Disconnected");
         Status = ClientStatus.Disconnected;
